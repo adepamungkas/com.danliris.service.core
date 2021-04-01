@@ -25,8 +25,11 @@ namespace Com.DanLiris.Service.Core.Test.DataUtils
                 Code = $"Code{guid}",
                 Name = $"Name{guid}",
                 Address = $"Address{guid}",
+                PhoneNumber = $"PhoneNumber{guid}",
+                NIK = $"NIK{guid}",
                 NPWP = $"NPWP{guid}",
                 WPName = $"WPName{guid}",
+                KaberType = $"KaberType{guid}",
             };
 
             return model;

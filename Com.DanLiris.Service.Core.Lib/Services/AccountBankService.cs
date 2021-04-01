@@ -3,6 +3,8 @@ using Com.DanLiris.Service.Core.Lib.Interfaces;
 using Com.DanLiris.Service.Core.Lib.Models;
 using Com.DanLiris.Service.Core.Lib.ViewModels;
 using Com.Moonlay.NetCore.Lib;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -14,8 +16,17 @@ namespace Com.DanLiris.Service.Core.Lib.Services
 {
     public class AccountBankService : BasicService<CoreDbContext, AccountBank>, IMap<AccountBank, AccountBankViewModel>
     {
+        private readonly IDistributedCache _cache;
+
         public AccountBankService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
+            _cache = serviceProvider.GetService<IDistributedCache>();
+        }
+
+        protected override void SetCache()
+        {
+            var data = DbContext.AccountBanks.ToList();
+            _cache.SetString("AccountBank", JsonConvert.SerializeObject(data));
         }
 
         public override Tuple<List<AccountBank>, int, Dictionary<string, string>, List<string>> ReadModel(int Page = 1, int Size = 25, string Order = "{}", List<string> Select = null, string Keyword = null, string Filter = "{}")
@@ -90,7 +101,41 @@ namespace Com.DanLiris.Service.Core.Lib.Services
 
             int TotalData = pageable.TotalCount;
 
+            SetCache();
+
             return Tuple.Create(Data, TotalData, OrderDictionary, SelectedFields);
+        }
+
+        public Tuple<List<AccountBank>> ReadModelByDivisionName(string divisionName)
+        {
+            IQueryable<AccountBank> Query = this.DbContext.AccountBanks;
+
+
+            Query = Query.Where(bank => bank.DivisionName == divisionName);
+
+            Query = Query
+                .Select(a => new AccountBank
+                {
+                    Id = a.Id,
+                    Code = a.Code,
+                    BankCode = a.BankCode,
+                    BankName = a.BankName,
+                    BankAddress = a.BankAddress,
+                    AccountName = a.AccountName,
+                    AccountNumber = a.AccountNumber,
+                    SwiftCode = a.SwiftCode,
+                    CurrencyId = a.CurrencyId,
+                    CurrencyCode = a.CurrencyCode,
+                    DivisionCode = a.DivisionCode,
+                    DivisionId = a.DivisionId,
+                    DivisionName = a.DivisionName,
+                    _LastModifiedUtc = a._LastModifiedUtc,
+                    AccountCOA = a.AccountCOA
+                });
+
+            List<AccountBank> Data = new List<AccountBank>(Query);
+
+            return Tuple.Create(Data);
         }
 
         public AccountBankViewModel MapToViewModel(AccountBank accountBank)

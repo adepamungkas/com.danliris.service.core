@@ -13,6 +13,8 @@ using CsvHelper.Configuration;
 using System.Dynamic;
 using Com.DanLiris.Service.Core.Lib.Interfaces;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Com.DanLiris.Service.Core.Lib.Services
 {
@@ -20,6 +22,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
     {
         public CategoryService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
+            _cache = serviceProvider.GetService<IDistributedCache>();
         }
 
         public override Tuple<List<Category>, int, Dictionary<string, string>, List<string>> ReadModel(int Page = 1, int Size = 25, string Order = "{}", List<string> Select = null, string Keyword = null, string Filter = "{}")
@@ -43,7 +46,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             /* Const Select */
             List<string> SelectedFields = new List<string>()
             {
-                "_id", "code", "name", "PurchasingCOA", "StockCOA", "LocalDebtCOA", "ImportDebtCOA"
+                "_id", "code", "name", "PurchasingCOA", "StockCOA", "LocalDebtCOA", "ImportDebtCOA", "AccountingCategoryId"
             }; 
 
             Query = Query
@@ -55,7 +58,8 @@ namespace Com.DanLiris.Service.Core.Lib.Services
                     PurchasingCOA = b.PurchasingCOA,
                     StockCOA = b.StockCOA,
                     LocalDebtCOA = b.LocalDebtCOA,
-                    ImportDebtCOA = b.ImportDebtCOA
+                    ImportDebtCOA = b.ImportDebtCOA,
+                    AccountingCategoryId = b.AccountingCategoryId
                 });
 
             /* Order */
@@ -84,7 +88,18 @@ namespace Com.DanLiris.Service.Core.Lib.Services
 
             int TotalData = pageable.TotalCount;
 
+            SetCache();
+
             return Tuple.Create(Data, TotalData, OrderDictionary, SelectedFields);
+        }
+
+        public List<Category> ReadModelByAccountingCategoryId(int id)
+        {
+            var context = this.DbContext.Categories;
+
+            var result = context.Where(x => x.AccountingCategoryId == id).ToList();
+
+            return result;
         }
 
         public  Tuple<List<CategoryViewModel>, int, Dictionary<string, string>> JoinDivision(int Page = 1, int Size = 25, string Order = "{}", string Keyword = "", string Filter = "{}")
@@ -191,12 +206,16 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             categoryVM._updatedBy = category._LastModifiedBy;
             categoryVM._updateAgent = category._LastModifiedAgent;
             categoryVM.code = category.Code;
+            categoryVM.Code = category.Code;
             categoryVM.name = category.Name;
+            categoryVM.Name = category.Name;
             categoryVM.ImportDebtCOA = category.ImportDebtCOA;
             categoryVM.LocalDebtCOA = category.LocalDebtCOA;
             categoryVM.PurchasingCOA = category.PurchasingCOA;
             categoryVM.StockCOA = category.StockCOA;
             categoryVM.codeRequirement = category.CodeRequirement;
+            categoryVM.AccountingCategoryId = category.AccountingCategoryId;
+            categoryVM.Id = category.Id;
 
             return categoryVM;
         }
@@ -222,6 +241,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             category.LocalDebtCOA = categoryVM.LocalDebtCOA;
             category.PurchasingCOA = categoryVM.PurchasingCOA;
             category.StockCOA = categoryVM.StockCOA;
+            category.AccountingCategoryId = categoryVM.AccountingCategoryId;
 
             return category;
         }
@@ -231,6 +251,13 @@ namespace Com.DanLiris.Service.Core.Lib.Services
         {
             "Kode", "Nama", "Kode Kebutuhan"
         };
+        private readonly IDistributedCache _cache;
+
+        protected override void SetCache()
+        {
+            var data = DbContext.Categories.ToList();
+            _cache.SetString("Category", JsonConvert.SerializeObject(data));
+        }
 
         public List<string> CsvHeader => Header;
 

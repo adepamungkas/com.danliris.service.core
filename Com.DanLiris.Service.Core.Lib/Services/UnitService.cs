@@ -12,6 +12,8 @@ using CsvHelper.Configuration;
 using System.Dynamic;
 using Com.DanLiris.Service.Core.Lib.Interfaces;
 using Microsoft.Extensions.Primitives;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace Com.DanLiris.Service.Core.Lib.Services
 {
@@ -22,6 +24,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
 
         public UnitService(IServiceProvider serviceProvider) : base(serviceProvider)
         {
+            _cache = serviceProvider.GetService<IDistributedCache>();
         }
 
         public override Tuple<List<Unit>, int, Dictionary<string, string>, List<string>> ReadModel(int Page = 1, int Size = 25, string Order = "{}", List<string> Select = null, string Keyword = null,string Filter="{}")
@@ -45,7 +48,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             /* Const Select */
             List<string> SelectedFields = new List<string>()
             {
-                "Id", "Code", "Division", "Name", "COACode"
+                "Id", "Code", "Division", "Name", "COACode", "AccountingUnitId"
             };
 
             Query = Query
@@ -57,8 +60,9 @@ namespace Com.DanLiris.Service.Core.Lib.Services
                     DivisionCode = u.DivisionCode,
                     DivisionName = u.DivisionName,
                     Name = u.Name,
-                    COACode = u.COACode
-                });
+                    COACode = u.COACode,
+                    AccountingUnitId = u.AccountingUnitId
+                }).Where(x => x.Id != 37);
 
             /* Order */
             if (OrderDictionary.Count.Equals(0))
@@ -86,6 +90,8 @@ namespace Com.DanLiris.Service.Core.Lib.Services
 
             int TotalData = pageable.TotalCount;
 
+            SetCache();
+
             return Tuple.Create(Data, TotalData, OrderDictionary, SelectedFields);
         }
 
@@ -111,6 +117,8 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             unitVM.Name = unit.Name;
             unitVM.Description = unit.Description;
             unitVM.COACode = unit.COACode;
+            unitVM.VBDocumentLayoutOrder = unit.VBDocumentLayoutOrder;
+            unitVM.AccountingUnitId = unit.AccountingUnitId;
             
             return unitVM;
         }
@@ -136,6 +144,7 @@ namespace Com.DanLiris.Service.Core.Lib.Services
             unit.Name = unitVM.Name;
             unit.Description = unitVM.Description;
             unit.COACode = unitVM.COACode;
+            unit.AccountingUnitId = unitVM.AccountingUnitId;
 
             return unit;
         }
@@ -145,6 +154,13 @@ namespace Com.DanLiris.Service.Core.Lib.Services
         {
             "Kode Unit", "Divisi", "Nama", "Deskripsi"
         };
+        private readonly IDistributedCache _cache;
+
+        protected override void SetCache()
+        {
+            var units = DbContext.Units.ToList();
+            _cache.SetString("Unit", JsonConvert.SerializeObject(units));
+        }
 
         public List<string> CsvHeader => Header;
 
@@ -157,6 +173,11 @@ namespace Com.DanLiris.Service.Core.Lib.Services
                 Map(b => b.Name).Index(2);
                 Map(b => b.Description).Index(3);
             }
+        }
+
+        public List<Unit> GetUnitWithVBDocumentLayoutOrder()
+        {
+            return DbSet.Where(entity => entity.VBDocumentLayoutOrder > 0).OrderBy(entity => entity.VBDocumentLayoutOrder).ToList();
         }
 
         public Tuple<bool, List<object>> UploadValidate(List<UnitViewModel> Data, List<KeyValuePair<string, StringValues>> Body)
@@ -251,6 +272,13 @@ namespace Com.DanLiris.Service.Core.Lib.Services
                 Description = x.Description,
                 Name = x.Name
             }).ToList();
+        }
+
+        public List<Unit> GetUnitsByAccountingUnitId(int id)
+        {
+            var _dbset = this.DbSet;
+
+            return _dbset.Where(x => x.AccountingUnitId == id).ToList();
         }
     }
 }

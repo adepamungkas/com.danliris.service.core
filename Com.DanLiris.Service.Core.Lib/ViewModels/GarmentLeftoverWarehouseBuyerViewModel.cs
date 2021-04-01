@@ -13,8 +13,14 @@ namespace Com.DanLiris.Service.Core.Lib.ViewModels
         public string Name { get; set; }
 
         public string Address { get; set; }
+        public string PhoneNumber { get; set; }
+        public string NIK { get; set; }
+
         public string NPWP { get; set; }
         public string WPName { get; set; }
+
+        [MaxLength(20)]
+        public string KaberType { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

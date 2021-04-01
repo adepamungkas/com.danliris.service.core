@@ -15,9 +15,18 @@ namespace Com.DanLiris.Service.Core.Lib.Models
         public string Address { get; set; }
 
         [MaxLength(50)]
+        public string PhoneNumber { get; set; }
+
+        [MaxLength(50)]
+        public string NIK { get; set; }
+
+        [MaxLength(50)]
         public string NPWP { get; set; }
 
         [MaxLength(50)]
         public string WPName { get; set; }
+
+        [MaxLength(20)]
+        public string KaberType { get; set; }
     }
 }
